@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Surveillance System</title>
+    <style>
+        body { font-family: sans-serif; max-width: 900px; margin: 2rem auto; padding: 0 1rem; }
+        h1 { font-size: 1.4rem; }
+        section { margin-bottom: 2rem; padding: 1rem; border: 1px solid #ddd; border-radius: 8px; }
+        img.stream { width: 100%; max-width: 640px; border: 2px solid #333; border-radius: 4px; background: #000; }
+        button { padding: 0.5rem 1rem; cursor: pointer; }
+        #uploadStatus { margin-top: 0.5rem; font-size: 0.9rem; color: #555; }
+    </style>
+</head>
+<body>
+    <h1>🎥 AI Surveillance System</h1>
+
+    <section>
+        <h2>Live Webcam Feed</h2>
+        <p>Requires a webcam available to the server machine. If none is
+           available (e.g. running on a headless server), this will fail —
+           that's expected and fine for now.</p>
+        <button onclick="startWebcam()">Start Webcam Feed</button>
+        <button onclick="stopWebcam()">Stop</button>
+        <br><br>
+        <img id="webcamImg" class="stream" style="display:none;">
+    </section>
+
+    <section>
+        <h2>Upload Video or Image</h2>
+        <input type="file" id="videoFile" accept="video/*,.jpg,.jpeg,.png,.bmp,.webp">
+        <button onclick="uploadVideo()">Upload</button>
+        <div id="uploadStatus"></div>
+        <br>
+        <img id="uploadedImg" class="stream" style="display:none;">
+    </section>
+
+    <script>
+        function startWebcam() {
+            const img = document.getElementById('webcamImg');
+            img.src = '/video_feed?' + Date.now(); // cache-bust
+            img.style.display = 'block';
+        }
+        async function stopWebcam() {
+            const img = document.getElementById('webcamImg');
+            // Abort the browser request first.
+            img.src = 'about:blank';
+            img.style.display = 'none';
+
+            // Explicitly release cv2.VideoCapture on the server. This is
+            // needed because Safari may keep an MJPEG request alive briefly.
+            try {
+                await fetch('/stop_webcam', { method: 'POST' });
+            } catch (err) {
+                console.error('Could not stop webcam on server:', err);
+            }
+        }
+
+        async function uploadVideo() {
+            const fileInput = document.getElementById('videoFile');
+            const status = document.getElementById('uploadStatus');
+            if (!fileInput.files.length) {
+                status.textContent = 'Please choose a video or image first.';
+                return;
+            }
+            const formData = new FormData();
+            formData.append('file', fileInput.files[0]);
+
+            status.textContent = 'Uploading...';
+            try {
+                const res = await fetch('/upload', { method: 'POST', body: formData });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.detail || 'Upload failed');
+
+                status.textContent = 'Uploaded: ' + data.filename;
+                const img = document.getElementById('uploadedImg');
+                img.src = data.stream_url + '?' + Date.now();
+                img.style.display = 'block';
+            } catch (err) {
+                status.textContent = 'Error: ' + err.message;
+            }
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,34 @@
+# Environment
+.env
+venv/
+venv311/
+__pycache__/
+*.pyc
+
+# Database
+*.db
+*.sqlite3
+
+# Media / generated content
+static/screenshots/*
+!static/screenshots/.gitkeep
+static/uploads/*
+!static/uploads/.gitkeep
+
+# Model weights (usually large — track separately or via Git LFS)
+backend/models/*.pt
+backend/models/*.pth
+yolo26n.pt
+data/
+data/Accident_detect_dataset/data/
+data/Accident_detect_dataset/runs/
+data/Accident_detect_dataset/*.ipynb
+data/Accident_detect_dataset/.ipynb_checkpoints/
+data/Accident_detect_dataset/.DS_Store
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
