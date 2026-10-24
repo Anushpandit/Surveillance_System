@@ -28,7 +28,9 @@ class BaseDetector:
             x1, y1, x2, y2 = detection.bbox
             color = self._color_for(detection.event_type)
             cv2.rectangle(annotated, (x1, y1), (x2, y2), color, 2)
-            text = f"{detection.event_type} {detection.confidence:.2f}"
+            # Weapon weights can produce valid scores below 0.01; two
+            # decimals would display those detections misleadingly as 0.00.
+            text = f"{detection.event_type} {detection.confidence:.3f}"
             cv2.putText(
                 annotated, text, (x1, max(y1 - 8, 12)),
                 cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2,

@@ -45,6 +45,7 @@ The system is built as a layered pipeline where each stage has a single responsi
    - A Telegram listener sends the alert.
 5. Failure of one listener must not crash the detection loop or block other listeners.
 6. The dashboard reads from the database through API endpoints to display live status and historical search and filtering.
+7. JWT authentication protects event history and review operations; event deletion and user administration require the `admin` role. New registrations default to `viewer`.
 
 ### Key Architectural Decisions
 
@@ -82,6 +83,11 @@ surveillance-system/
 │   │   ├── models.py                # SQLAlchemy ORM models
 │   │   ├── database.py              # DB session/engine setup
 │   │   └── crud.py                  # Create/read/update/delete operations
+│   ├── auth/
+│   │   ├── models.py                # User and role models
+│   │   ├── routes.py                # Registration, login, reset, admin routes
+│   │   ├── dependencies.py          # JWT and role dependencies
+│   │   └── security.py              # bcrypt and JWT helpers
 │   ├── telegram_bot/
 │   │   └── alert_sender.py          # Telegram Bot API integration
 │   ├── utils/

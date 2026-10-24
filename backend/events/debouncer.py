@@ -17,12 +17,18 @@ class Debouncer:
         self._last_fired: Dict[Tuple[str, str], float] = {}
         self._lock = threading.Lock()
 
-    def should_fire(self, source: str, event_type: str) -> bool:
+    def should_fire(
+        self, source: str, event_type: str, cooldown_seconds: Optional[int] = None
+    ) -> bool:
+        """Return whether an event is outside its configured cooldown."""
+        cooldown = (
+            self.cooldown_seconds if cooldown_seconds is None else cooldown_seconds
+        )
         key = (source, event_type)
         now = time.time()
         with self._lock:
             last_time = self._last_fired.get(key, 0.0)
-            if now - last_time < self.cooldown_seconds:
+            if now - last_time < cooldown:
                 return False
             self._last_fired[key] = now
             return True

@@ -56,6 +56,28 @@
             }
         }
 
+        async function normalizeImageForUpload(file) {
+            // Safari can provide AVIF bytes while retaining a .jpg/.jpeg
+            // name. Decode it in the browser, then send a real JPEG so the
+            // server-side OpenCV/YOLO pipeline can analyze it.
+            if (!file.type.startsWith('image/')) return file;
+
+            const image = await createImageBitmap(file);
+            try {
+                const canvas = document.createElement('canvas');
+                canvas.width = image.width;
+                canvas.height = image.height;
+                canvas.getContext('2d').drawImage(image, 0, 0);
+                const blob = await new Promise((resolve, reject) =>
+                    canvas.toBlob(result => result ? resolve(result) : reject(new Error('Could not convert image')), 'image/jpeg', 0.95)
+                );
+                const jpegName = file.name.replace(/\.[^.]+$/, '') + '.jpg';
+                return new File([blob], jpegName, { type: 'image/jpeg' });
+            } finally {
+                image.close();
+            }
+        }
+
         async function uploadVideo() {
             const fileInput = document.getElementById('videoFile');
             const status = document.getElementById('uploadStatus');
@@ -64,7 +86,14 @@
                 return;
             }
             const formData = new FormData();
-            formData.append('file', fileInput.files[0]);
+            let file;
+            try {
+                file = await normalizeImageForUpload(fileInput.files[0]);
+            } catch (err) {
+                status.textContent = 'Error: This image format could not be prepared for analysis.';
+                return;
+            }
+            formData.append('file', file);
 
             status.textContent = 'Uploading...';
             try {
@@ -74,6 +103,10 @@
 
                 status.textContent = 'Uploaded: ' + data.filename;
                 const img = document.getElementById('uploadedImg');
+                img.onerror = () => {
+                    img.style.display = 'none';
+                    status.textContent = 'Error: The uploaded image could not be decoded.';
+                };
                 img.src = data.stream_url + '?' + Date.now();
                 img.style.display = 'block';
             } catch (err) {

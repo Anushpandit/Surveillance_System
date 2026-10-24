@@ -18,7 +18,7 @@ class AccidentDetector(BaseDetector):
         self.confidence_threshold = (
             confidence_threshold
             if confidence_threshold is not None
-            else settings.CONFIDENCE_THRESHOLD
+            else settings.ACCIDENT_CONFIDENCE_THRESHOLD
         )
         self.using_custom_weights = settings.ACCIDENT_MODEL_PATH.exists()
         weights = (

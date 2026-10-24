@@ -150,3 +150,54 @@ class WebcamManager:
                 cls._instance.release()
                 cls._instance = None
             cls._clients = 0
+
+
+def resolve_source(source_str: str):
+    """Convert numeric camera source strings to webcam indexes."""
+
+    return int(source_str) if source_str.isdigit() else source_str
+
+
+class CameraStreamManager:
+    """Manage shared streams for multiple named camera sources."""
+
+    _streams: dict[int, VideoStream] = {}
+    _clients: dict[int, int] = {}
+    _lock = threading.Lock()
+
+    @classmethod
+    def get_stream(cls, camera_id: int, source) -> VideoStream:
+        """Return or open the shared stream for a camera."""
+
+        with cls._lock:
+            stream = cls._streams.get(camera_id)
+            if stream is None or not stream.is_opened():
+                stream = VideoStream(source=source)
+                cls._streams[camera_id] = stream
+                cls._clients[camera_id] = 0
+            cls._clients[camera_id] = cls._clients.get(camera_id, 0) + 1
+            return stream
+
+    @classmethod
+    def release_client(cls, camera_id: int, stream: VideoStream | None = None) -> None:
+        """Release one client and close the stream when unused."""
+
+        with cls._lock:
+            current = cls._streams.get(camera_id)
+            if current is None or (stream is not None and current is not stream):
+                return
+            cls._clients[camera_id] = max(0, cls._clients.get(camera_id, 0) - 1)
+            if cls._clients[camera_id] == 0:
+                current.release()
+                cls._streams.pop(camera_id, None)
+                cls._clients.pop(camera_id, None)
+
+    @classmethod
+    def release(cls, camera_id: int) -> None:
+        """Force-release one camera stream."""
+
+        with cls._lock:
+            stream = cls._streams.pop(camera_id, None)
+            cls._clients.pop(camera_id, None)
+            if stream is not None:
+                stream.release()

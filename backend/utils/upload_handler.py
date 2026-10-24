@@ -44,6 +44,10 @@ async def save_uploaded_file(file: UploadFile) -> str:
                 )
             out_file.write(chunk)
 
+    if size_bytes == 0:
+        destination.unlink(missing_ok=True)
+        raise HTTPException(status_code=400, detail="The uploaded file is empty.")
+
     return safe_filename
 
 

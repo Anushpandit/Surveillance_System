@@ -2,7 +2,7 @@
 
 This project follows a threat-detection-first build order rather than the usual CRUD-first sequence. The detection pipeline is the product's core value, so ingestion, detection, and event handling are established before authentication and dashboard features are layered on top.
 
-Phases 1–4 are complete. The remaining phases build persistence, alerting, access control, user-facing workflows, testing, and deployment around that foundation.
+Phases 1–5 and 7–9 are complete. Phase 10 quality assurance remains in progress, followed by deployment and continuous improvement.
 
 ## Phase 1 — Project Foundation and Configuration
 
@@ -85,7 +85,7 @@ Phase 6 is independent of Phase 5 and may be developed in parallel with database
 
 ## Phase 7 — Authentication and Authorization
 
-**Status: Planned**
+**Status: Complete**
 
 This phase is adapted from the standard login and authentication phase. It is intentionally placed after the detection pipeline because authentication protects the dashboard and stored data rather than enabling initial detector development.
 
@@ -99,9 +99,11 @@ This phase is adapted from the standard login and authentication phase. It is in
 
 Phase 7 must be complete before Phase 8 is deployed to real users. An unauthenticated dashboard exposing live camera feeds creates a privacy and security risk.
 
+Implemented in `backend/auth/` with JWT login, registration, password reset, role enforcement, and authenticated event routes.
+
 ## Phase 8 — Dashboard
 
-**Status: Planned**
+**Status: Complete**
 
 This phase is adapted from the standard dashboard phase.
 
@@ -115,9 +117,11 @@ This phase is adapted from the standard dashboard phase.
   - Detections per day.
   - Event-type breakdown.
 
+Implemented as server-rendered HTML with vanilla JavaScript under `frontend/`. The dashboard includes authenticated live monitoring, media upload, event statistics, filterable history, review/delete actions, and event-type analytics.
+
 ## Phase 9 — History, Search, and Event Management
 
-**Status: Planned**
+**Status: Complete**
 
 This phase is adapted from the standard CRUD phase. The primary entity is a security event rather than a typical user-created record.
 
@@ -131,11 +135,13 @@ This phase is adapted from the standard CRUD phase. The primary entity is a secu
 - Add notification preferences for selecting which event types trigger Telegram alerts.
 - Support CSV or PDF export of incidents over a selected date range.
 
+Implemented with filtered pagination, source/date/confidence filters, screenshot-backed event details, review/delete actions, and admin-only retention/orphan maintenance endpoints. Retention cleanup is manual or schedulable and defaults to dry-run for safety.
+
 Phase 5 must be complete before Phase 9 because history and search require persisted events.
 
 ## Phase 10 — Testing and Quality Assurance
 
-**Status: Planned; begin incrementally during Phases 5–9**
+**Status: In progress; begin incrementally during Phases 5–9**
 
 - Add unit tests for detector logic.
 - Test debouncer behavior.

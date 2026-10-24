@@ -7,20 +7,25 @@ code is added. Run this, hit the endpoints below, and confirm everything
 responds correctly. Later phases will add video streaming, detection,
 DB, and Telegram routes on top of this skeleton.
 """
-from fastapi import FastAPI, UploadFile, File, HTTPException
+import logging
 import threading
 import time
+from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse, Response, StreamingResponse
 from fastapi.templating import Jinja2Templates
 from starlette.requests import Request
 
 from backend.config import settings
+from backend.auth.routes import router as auth_router
 from backend.database.database import init_db
 from backend.database.db_listener import save_event_to_db
 from backend.database.routes import router as events_router
+from backend.database.settings_routes import router as settings_router
+from backend.database.camera_routes import router as cameras_router
 from backend.detection.detector_manager import DetectorManager
 from backend.events.event_manager import EventManager
+from backend.telegram_bot.alert_sender import send_telegram_alert
 from backend.utils.video_stream import VideoStream, WebcamManager
 from backend.utils.upload_handler import (
     ALLOWED_IMAGE_EXTENSIONS,
@@ -34,8 +39,17 @@ app = FastAPI(
     version="0.1.0",
 )
 
-# Serve screenshots, uploaded videos, and frontend static assets
+logging.basicConfig(level=logging.INFO)
+
+# Serve screenshots and uploaded media. Frontend assets are mounted separately
+# so the existing /static URLs remain backwards compatible.
 app.mount("/static", StaticFiles(directory=str(settings.BASE_DIR / "static")), name="static")
+app.mount("/media", StaticFiles(directory=str(settings.BASE_DIR / "static")), name="media")
+app.mount(
+    "/assets",
+    StaticFiles(directory=str(settings.BASE_DIR / "frontend" / "static")),
+    name="assets",
+)
 
 templates = Jinja2Templates(directory=str(settings.BASE_DIR / "frontend" / "templates"))
 
@@ -62,6 +76,7 @@ def log_security_event(event):
 
 _event_manager.add_listener(log_security_event)
 _event_manager.add_listener(save_event_to_db)
+_event_manager.add_listener(send_telegram_alert)
 
 
 @app.on_event("startup")
@@ -71,6 +86,9 @@ def on_startup():
 
 
 app.include_router(events_router)
+app.include_router(auth_router)
+app.include_router(settings_router)
+app.include_router(cameras_router)
 
 
 def processed_mjpeg_frames(stream, source: str, target_fps: float = None):
@@ -106,8 +124,23 @@ def processed_mjpeg_frames(stream, source: str, target_fps: float = None):
 
 @app.get("/", response_class=HTMLResponse)
 async def root(request: Request):
-    """Test dashboard: live webcam feed + upload-and-stream UI (Phase 2)."""
-    return templates.TemplateResponse(request, "index.html", {})
+    """Phase 8 dashboard entry point."""
+    return templates.TemplateResponse(request, "dashboard.html", {})
+
+
+@app.get("/login", response_class=HTMLResponse)
+async def login_page(request: Request):
+    return templates.TemplateResponse(request, "login.html", {})
+
+
+@app.get("/register", response_class=HTMLResponse)
+async def register_page(request: Request):
+    return templates.TemplateResponse(request, "register.html", {})
+
+
+@app.get("/dashboard", response_class=HTMLResponse)
+async def dashboard_page(request: Request):
+    return templates.TemplateResponse(request, "dashboard.html", {})
 
 
 @app.get("/health")
@@ -125,6 +158,8 @@ async def config_check():
     return {
         "database_url": settings.DATABASE_URL,
         "confidence_threshold": settings.CONFIDENCE_THRESHOLD,
+        "weapon_confidence_threshold": settings.WEAPON_CONFIDENCE_THRESHOLD,
+        "accident_confidence_threshold": settings.ACCIDENT_CONFIDENCE_THRESHOLD,
         "frame_skip": settings.FRAME_SKIP,
         "alert_cooldown_seconds": settings.ALERT_COOLDOWN_SECONDS,
         "threat_types": settings.THREAT_TYPES,
@@ -207,6 +242,12 @@ async def video_feed_uploaded(filename: str):
 
         frame = cv2.imread(str(filepath))
         if frame is None:
+            # Safari may upload an AVIF image while retaining a .jpg/.jpeg
+            # filename. OpenCV cannot decode AVIF, but modern browsers can
+            # display it directly, so preserve the original bytes.
+            raw = filepath.read_bytes()
+            if len(raw) >= 12 and raw[4:8] == b"ftyp" and b"avif" in raw[8:24]:
+                return Response(content=raw, media_type="image/avif")
             raise HTTPException(status_code=400, detail="Could not read image")
 
         try:

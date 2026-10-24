@@ -44,6 +44,8 @@ def init_db() -> None:
     established; ``create_all`` intentionally does not alter existing tables.
     """
 
+    from backend.auth import models as auth_models  # noqa: F401
     from backend.database import models  # noqa: F401
+    from backend.database import camera_model, system_settings_model  # noqa: F401
 
     Base.metadata.create_all(bind=engine)

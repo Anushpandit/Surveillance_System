@@ -44,6 +44,7 @@ def get_events(
     start_date: datetime | None = None,
     end_date: datetime | None = None,
     min_confidence: float | None = None,
+    max_confidence: float | None = None,
     reviewed: bool | None = None,
     source: str | None = None,
     skip: int = 0,
@@ -60,6 +61,8 @@ def get_events(
         query = query.filter(EventModel.timestamp <= end_date)
     if min_confidence is not None:
         query = query.filter(EventModel.confidence >= min_confidence)
+    if max_confidence is not None:
+        query = query.filter(EventModel.confidence <= max_confidence)
     if reviewed is not None:
         query = query.filter(EventModel.reviewed == reviewed)
     if source is not None:
@@ -68,13 +71,41 @@ def get_events(
     return query.order_by(desc(EventModel.timestamp)).offset(skip).limit(limit).all()
 
 
-def count_events(db: Session, event_type: str | None = None) -> int:
-    """Count persisted events, optionally restricted to one event type."""
+def count_events(
+    db: Session,
+    event_type: str | None = None,
+    start_date: datetime | None = None,
+    end_date: datetime | None = None,
+    min_confidence: float | None = None,
+    max_confidence: float | None = None,
+    reviewed: bool | None = None,
+    source: str | None = None,
+) -> int:
+    """Count persisted events using the same filters as ``get_events``."""
 
     query = db.query(EventModel)
     if event_type is not None:
         query = query.filter(EventModel.event_type == event_type)
+    if start_date is not None:
+        query = query.filter(EventModel.timestamp >= start_date)
+    if end_date is not None:
+        query = query.filter(EventModel.timestamp <= end_date)
+    if min_confidence is not None:
+        query = query.filter(EventModel.confidence >= min_confidence)
+    if max_confidence is not None:
+        query = query.filter(EventModel.confidence <= max_confidence)
+    if reviewed is not None:
+        query = query.filter(EventModel.reviewed == reviewed)
+    if source is not None:
+        query = query.filter(EventModel.source == source)
     return query.count()
+
+
+def get_distinct_sources(db: Session) -> list[str]:
+    """Return sorted camera and upload sources represented in event history."""
+
+    rows = db.query(EventModel.source).distinct().all()
+    return sorted(row[0] for row in rows if row[0])
 
 
 def mark_reviewed(
