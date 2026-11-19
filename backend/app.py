@@ -51,6 +51,15 @@ app.mount(
     name="assets",
 )
 
+
+@app.middleware("http")
+async def disable_asset_cache(request: Request, call_next):
+    """Ensure dashboard JavaScript changes are picked up immediately."""
+    response = await call_next(request)
+    if request.url.path.startswith("/assets/"):
+        response.headers["Cache-Control"] = "no-store, max-age=0"
+    return response
+
 templates = Jinja2Templates(directory=str(settings.BASE_DIR / "frontend" / "templates"))
 
 _detector_manager = None
